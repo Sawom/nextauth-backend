@@ -4,6 +4,8 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 const { MongoClient } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const { Resend } = require('resend');
+const crypto = require('crypto');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -11,6 +13,8 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+const resend = new Resend(process.env.RESEND_KEY);
 
 // MongoDB Connection URL
 const uri = process.env.MONGODB_URI;
@@ -28,6 +32,36 @@ async function run() {
     // database name and collection name
     const db = client.db("nextAuth");
     const collection = db.collection("users");
+
+    // send email from resend
+    app.post('/api/v1/forgot-password', async (req, res) => {
+        const { email } = req.body;
+
+        // 1. create token ( with uuid or crypto )
+        const resetToken = crypto.randomBytes(32).toString('hex');
+
+        // 2. token save in database for verify later
+        // database.saveToken({ email, resetToken, expires: Date.now() + 3600000 });
+
+        // 3. send link to user by email
+        // this link redirect to reset page which I design with next js
+        const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
+
+        try {
+            await resend.emails.send({
+                from: 'YourApp <onboarding@resend.dev>',
+                to: [email],
+                subject: 'Reset Password Request',
+                // in email i send a link which redirect to reset password page
+                html: `<p>password reset link</p>
+                      <a href="${resetLink}">Password Reset</a>`
+            });
+
+            res.status(200).json({ success: true, message: 'Email sent' });
+        } catch (error) {
+            res.status(500).json({ error: error.message });
+        }
+    });
 
     // User Registration and also handled social login like google, github
     app.post("/api/v1/register", async (req, res) => {
@@ -135,6 +169,8 @@ async function run() {
       }
 
     });
+
+    
 
     
     // Start the server
