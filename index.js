@@ -29,26 +29,54 @@ async function run() {
     const db = client.db("nextAuth");
     const collection = db.collection("users");
 
-    // User Registration
+    // User Registration and also handled social login like google, github
     app.post("/api/v1/register", async (req, res) => {
       try{
         const{username, email, password, provider} = req.body;
-        
+        const currentTime = new Date();
         // check if user existing
         const existingUser = await collection.findOne({ email });
 
         if(existingUser){
+          await collection.updateOne(
+            {email},
+            {$set: {lastLogin: currentTime}}
+          )
           return res.status(200).json({
             success: true,
             message: "User logged in successfully!",
-            user: "user",
-          })
-
+            user: { ...existingUser, lastLogin: currentTime },
+          });
         }
 
+        // if password then password will be hashed. not for social login features
+        let hashedPassword = null;
+          if (password) {
+            hashedPassword = await bcrypt.hash(password, 10);
+        }
 
+        // for new user
+
+        const newUser = {
+          username: username || email.split("@")[0],
+          email,
+          password: hashedPassword,
+          role: "user",
+          provider: provider || "credentials",
+          createdAt: currentTime,
+          lastLogin: currentTime,
+        };
+
+        await collection.insertOne({newUser});
+
+        res.status(201).json({
+          success: true,
+          message: "User registered successfully!",
+          user: newUser
+        });
 
       }
+
       catch(error){
           res.status(500).json({
             success: false,
@@ -56,34 +84,6 @@ async function run() {
           })
       }
 
-
-
-      const { username, email, password } = req.body;
-
-      // Check if email already exists
-      const existingUser = await collection.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: "User already exist!!!",
-        });
-      }
-
-      // Hash the password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Insert user into the database
-      await collection.insertOne({
-        username,
-        email,
-        password: hashedPassword,
-        role: "user",
-      });
-
-      res.status(201).json({
-        success: true,
-        message: "User registered successfully!",
-      });
     });
 
     // User Login
@@ -122,6 +122,7 @@ async function run() {
         success: true,
         message: "User successfully logged in!",
         accessToken: token,
+        lastLogin: currentTime
       });
     });
 
