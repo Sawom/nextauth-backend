@@ -56,7 +56,6 @@ async function run() {
         }
 
         // for new user
-
         const newUser = {
           username: username || email.split("@")[0],
           email,
@@ -67,7 +66,7 @@ async function run() {
           lastLogin: currentTime,
         };
 
-        await collection.insertOne({newUser});
+        await collection.insertOne(newUser);
 
         res.status(201).json({
           success: true,
@@ -88,42 +87,53 @@ async function run() {
 
     // User Login
     app.post("/api/v1/login", async (req, res) => {
-      const { email, password } = req.body;
+      try{
+        const { email, password } = req.body;
 
-      // Find user by email
-      const user = await collection.findOne({ email });
-      if (!user) {
-        return res.status(401).json({ message: "Invalid email or password" });
-      }
-
-      // Compare hashed password
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ message: "Invalid email or password" });
-      }
-
-      // time data taken when user enter the site
-      const currentTime = new Date();
-      await collection.updateOne(
-        {email: email},
-        { $set: {lastLogin: currentTime} }
-      );
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { email: user.email, role: user.role },
-        process.env.JWT_SECRET,
-        {
-          expiresIn: process.env.EXPIRES_IN,
+        // Find user by email
+        const user = await collection.findOne({ email });
+        if (!user || !user.password) {
+          console.log("User not found in DB");
+          return res.status(401).json({ message: "Invalid email or password" });
         }
-      );
 
-      res.json({
-        success: true,
-        message: "User successfully logged in!",
-        accessToken: token,
-        lastLogin: currentTime
-      });
+        // Compare hashed password
+        const isPasswordValid = await bcrypt.compare(password.trim(), user.password);
+        console.log("Comparison Result:", isPasswordValid);
+        if (!isPasswordValid) {
+          return res.status(401).json({ message: "Invalid email or password" });
+        }
+
+        // time data taken when user enter the site
+        const currentTime = new Date();
+        await collection.updateOne(
+          {email: email},
+          { $set: {lastLogin: currentTime} }
+        );
+
+        // Generate JWT token
+        const token = jwt.sign(
+          { email: user.email, role: user.role },
+          process.env.JWT_SECRET,
+          {
+            expiresIn: process.env.EXPIRES_IN,
+          }
+        );
+
+        res.json({
+          success: true,
+          message: "User successfully logged in!",
+          accessToken: token,
+          lastLogin: currentTime
+        });
+
+      }
+
+      catch (error) {
+        console.error("Login Error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+
     });
 
     
