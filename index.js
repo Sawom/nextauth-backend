@@ -31,6 +31,33 @@ async function run() {
 
     // User Registration
     app.post("/api/v1/register", async (req, res) => {
+      try{
+        const{username, email, password, provider} = req.body;
+        
+        // check if user existing
+        const existingUser = await collection.findOne({ email });
+
+        if(existingUser){
+          return res.status(200).json({
+            success: true,
+            message: "User logged in successfully!",
+            user: "user",
+          })
+
+        }
+
+
+
+      }
+      catch(error){
+          res.status(500).json({
+            success: false,
+            message: "Something went wrong"
+          })
+      }
+
+
+
       const { username, email, password } = req.body;
 
       // Check if email already exists
@@ -75,6 +102,13 @@ async function run() {
         return res.status(401).json({ message: "Invalid email or password" });
       }
 
+      // time data taken when user enter the site
+      const currentTime = new Date();
+      await collection.updateOne(
+        {email: email},
+        { $set: {lastLogin: currentTime} }
+      );
+
       // Generate JWT token
       const token = jwt.sign(
         { email: user.email, role: user.role },
@@ -91,11 +125,13 @@ async function run() {
       });
     });
 
+    
     // Start the server
     app.listen(port, () => {
       console.log(`Server is running on http://localhost:${port}`);
     });
   } finally {
+
   }
 }
 
