@@ -36,6 +36,11 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// here I get *APP_PASS* from .env,
+// when you visit .env file you can see a *APP_PASS* value. That value is come from google account.
+// to get it, go to your google account profile > Security then search *App password*. then google
+// ask you to login and after that you should create an app and after enter you get the *app password *
+// which is saved as *APP_PASS*
 
 async function run() {
   try {
@@ -45,7 +50,8 @@ async function run() {
 
     // database name and collection name
     const db = client.db("nextAuth");
-    const collection = db.collection("users");
+    const collection = db.collection("users"); // for users
+    const resetEntry = db.collection("password_resets") // for reset password
 
     // create user: User Registration and also handled social login like google, github
     app.post("/api/v1/register", async (req, res) => {
@@ -156,13 +162,37 @@ async function run() {
 
 
     // forget password and send email api
-    app.post("/api/auth/forgot-password", async(req, res)=>{
+    app.post("/api/v1/forgot-password", async(req, res)=>{
       const {email} = req.body;
-      // 1st check in database if user exist
+      // 1. check in database if user exist
       const userExists = await collection.findOne({ email });
       if(!userExists) {
         return res.status(404).json({ message: "User not found" });
       }
+
+      // 2.  unique token generate
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      
+      // 3. token save in database with 10mins expire time
+      const tokenExpiry = new Date(Date.now() + 10*60*1000 );
+      
+      // 4. token saved in database in another collection for 10 minutes
+      await resetEntry.updateOne(
+        {
+          email: email
+        },
+        { 
+          $set: { 
+            email: email, 
+            token: resetToken, 
+            expiresAt: tokenExpiry
+          } 
+        },
+        { upsert: true }
+      )
+      
+      // 5. create reset password link
+      const resetLink = `http://localhost:3000/api/v1/reset-password?token=${resetToken}`;
 
       try{
         await transporter.sendMail({
@@ -187,9 +217,37 @@ async function run() {
 
     } )
 
-    
-
-    
+    /**
+ * =============================================================
+ * PASSWORD RESET PROCESS (STEP-BY-STEP)
+ * =============================================================
+ * * STEP 1: User Input
+ * - User tar email address "/forget-password" page-e dibe.
+ * * STEP 2: Database Check
+ * - Check korbo ai email-e kono account database-e ache ki na.
+ * - Na thakle 404 Error (User Not Found) dibo.
+ * * STEP 3: Generate Secure Token (Crypto)
+ * - 'crypto' module diye ekta 64 characters-er random hex string (Token) banabo.
+ * - Eta security-r jnno dorkar jate keu guess na korte pare.
+ * * STEP 4: Set Expiration Time (10 Minutes)
+ * - Bortoman shomoyer (Date.now()) sathe 10 minute (10*60*1000 ms) jog korbo.
+ * - Ai 'Expiry Time' ar 'Token' ta Database-e user-er email-er sathe save korbo.
+ * * STEP 5: Create Reset Link
+ * - Ekta URL banabo jemon: http://localhost:3000/reset-password?token=XYZ...
+ * - Eikhane 'token' query parameter hishebe thakbe.
+ * * STEP 6: Send Email (Nodemailer)
+ * - Ai Link ta user-er email-e HTML button ba link hishebe pathabo.
+ * * STEP 7: User Click & Redirect
+ * - User email-er link-e click korle se Next.js-er "/reset-password" page-e jabe.
+ * - URL theke 'token' ta niye backend-e pathabe password change korar shomoy.
+ * * STEP 8: Final Verification (Backend)
+ * - Backend check korbe: 
+ * a) Token ta database-e ache ki na.
+ * b) Token er expiry time shesh hoye geche ki na.
+ * - Sob thik thakle database-e user-er password update hobe.
+ * =============================================================
+ */
+ 
     // Start the server
     app.listen(port, () => {
       console.log(`Server is running on http://localhost:${port}`);
