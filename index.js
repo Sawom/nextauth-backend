@@ -47,37 +47,7 @@ async function run() {
     const db = client.db("nextAuth");
     const collection = db.collection("users");
 
-    // send email from resend
-    app.post('/api/v1/forgot-password', async (req, res) => {
-        const { email } = req.body;
-
-        // 1. create token ( with uuid or crypto )
-        const resetToken = crypto.randomBytes(32).toString('hex');
-
-        // 2. token save in database for verify later
-        // database.saveToken({ email, resetToken, expires: Date.now() + 3600000 });
-
-        // 3. send link to user by email
-        // this link redirect to reset page which I design with next js
-        const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
-
-        try {
-            await resend.emails.send({
-                from: 'YourApp <onboarding@resend.dev>',
-                to: [email],
-                subject: 'Reset Password Request',
-                // in email i send a link which redirect to reset password page
-                html: `<p>password reset link</p>
-                      <a href="${resetLink}">Password Reset</a>`
-            });
-
-            res.status(200).json({ success: true, message: 'Email sent' });
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    });
-
-    // User Registration and also handled social login like google, github
+    // create user: User Registration and also handled social login like google, github
     app.post("/api/v1/register", async (req, res) => {
       try{
         const{username, email, password, provider} = req.body;
@@ -183,6 +153,39 @@ async function run() {
       }
 
     });
+
+
+    // forget password and send email api
+    app.post("/api/auth/forgot-password", async(req, res)=>{
+      const {email} = req.body;
+      // 1st check in database if user exist
+      const userExists = await collection.findOne({ email });
+      if(!userExists) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      try{
+        await transporter.sendMail({
+          from: '"My Custom App" <asawom250@gmail.com>', 
+          to: email, // user email from frontend
+          subject: "Password Reset Request", 
+          html: `
+            <div style="font-family: Arial, sans-serif; padding: 20px;">
+              <h2>Reset Password</h2>
+              <p> You are requested to reset your password. Click the link below: </p>
+              <a href="${resetLink}" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
+              <p>this link is worked for 10 minutes </p>
+            </div>
+          `,
+        });
+        res.status(200).json({success: true, message: "Email sent successfully!"})
+
+      }catch (error) {
+        console.log(error);
+        res.status(500).json({ success: false, message: "Failed to send email" });
+      }
+
+    } )
 
     
 
