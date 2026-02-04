@@ -6,6 +6,7 @@ const { MongoClient } = require("mongodb");
 const jwt = require("jsonwebtoken");
 const { Resend } = require('resend');
 const crypto = require('crypto');
+const nodemailer = require("nodemailer");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -22,6 +23,19 @@ const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
+
+// create nodemailer transporter 
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, 
+  auth: {
+    user: process.env.EMAIL, 
+    pass: process.env.APP_PASS,
+  },
+});
+
 
 async function run() {
   try {
