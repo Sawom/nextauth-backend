@@ -232,12 +232,12 @@ async function run() {
       // 1. cleaning token if space exist
       const { token, newPassword } = req.body;
       const cleanToken = token ? token.trim() : "";
-      // console.log("Postman theke asha token:", cleanToken);
+      // console.log("Postman token:", cleanToken);
       
       try{
           // 2. check if token in collection and if token in validate time
           const resetData = await resetEntry.findOne({ token: cleanToken });
-          // console.log("Database e pawa data:", resetData);
+          // console.log("Database data:", resetData);
           
           if (!resetData) {
             return res.status(400).json({ success: false, message: "Invalid or Expired Token!" });
@@ -274,6 +274,41 @@ async function run() {
           res.status(500).json({ success: false, message: "Something went wrong!" });
         }
     } )
+
+    /**
+   * API to check if the reset token is still valid and 
+   * calculate the remaining time for the countdown timer.
+   */
+    app.get("/api/v1/reset-token-status/:token", async (req, res) => {
+      const { token } = req.params;
+      try {
+        // 1. Check if the token exists in the database
+        const resetData = await resetEntry.findOne({ token });
+
+        if (!resetData) {
+          return res.status(404).json({ success: false, message: "Token not found" });
+        }
+
+        // 2. Calculate the difference between Expiry Time and Current Time
+        const now = new Date();
+        const expiry = new Date(resetData.expiresAt);
+        // Difference is in milliseconds, so we divide by 1000 to get seconds
+        const timeLeftInSeconds = Math.floor((expiry - now) / 1000);
+
+        // 3. If time has run out, let the frontend know immediately
+        if (timeLeftInSeconds <= 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: "Token already expired", 
+            timeLeft: 0 
+          });
+        }
+      // 4. Return the exact remaining seconds to sync the frontend timer
+        res.status(200).json({ success: true, timeLeft: timeLeftInSeconds });
+      } catch (error) {
+        res.status(500).json({ success: false, message: "Server error" });
+      }
+    });
 
     /**
  * =============================================================
