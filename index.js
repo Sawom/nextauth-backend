@@ -280,29 +280,30 @@ async function run() {
  * PASSWORD RESET PROCESS (STEP-BY-STEP)
  * =============================================================
  * * STEP 1: User Input
- * - User tar email address "/forget-password" page-e dibe.
+ * - The user enters their registered email address on the "/forgot-password" page.
  * * STEP 2: Database Check
- * - Check korbo ai email-e kono account database-e ache ki na.
- * - Na thakle 404 Error (User Not Found) dibo.
+ * - Verify if the email exists in the database.
+ * - If not found, return a 404 Error (User Not Found).
  * * STEP 3: Generate Secure Token (Crypto)
- * - 'crypto' module diye ekta 64 characters-er random hex string (Token) banabo.
- * - Eta security-r jnno dorkar jate keu guess na korte pare.
+ * - Create a secure, 64-character random hex string using the 'crypto' module.
+ * - This ensures the token is unique and impossible to guess.
  * * STEP 4: Set Expiration Time (10 Minutes)
- * - Bortoman shomoyer (Date.now()) sathe 10 minute (10*60*1000 ms) jog korbo.
- * - Ai 'Expiry Time' ar 'Token' ta Database-e user-er email-er sathe save korbo.
+ * - Calculate expiry time by adding 10 minutes (10 * 60 * 1000 ms) to the current time.
+ * - Save the 'token', 'email', and 'expiresAt' in the database (password_resets collection).
  * * STEP 5: Create Reset Link
- * - Ekta URL banabo jemon: http://localhost:3000/reset-password?token=XYZ...
- * - Eikhane 'token' query parameter hishebe thakbe.
+ * - Generate a unique URL, for example: http://localhost:3000/reset-password?token=XYZ...
+ * - The token is passed as a query parameter in the URL.
  * * STEP 6: Send Email (Nodemailer)
- * - Ai Link ta user-er email-e HTML button ba link hishebe pathabo.
- * * STEP 7: User Click & Redirect
- * - User email-er link-e click korle se Next.js-er "/reset-password" page-e jabe.
- * - URL theke 'token' ta niye backend-e pathabe password change korar shomoy.
- * * STEP 8: Final Verification (Backend)
- * - Backend check korbe: 
- * a) Token ta database-e ache ki na.
- * b) Token er expiry time shesh hoye geche ki na.
- * - Sob thik thakle database-e user-er password update hobe.
+ * - Send the reset link to the user's email as a clickable button or link using Nodemailer.
+ * * STEP 7: User Redirection
+ * - Clicking the link takes the user to the Next.js "/reset-password" page.
+ * - The frontend extracts the 'token' from the URL to send it back to the server.
+ * * STEP 8: Final Verification & Update (Backend)
+ * - The backend validates the request by checking:
+ * a) If the token exists in the database.
+ * b) If the token is still within the 10-minute expiry window.
+ * - Once verified, the user's password is hashed and updated in the main collection.
+ * - Finally, the reset token is deleted from the database for security.
  * =============================================================
  */
  
