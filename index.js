@@ -4,7 +4,6 @@ const cors = require("cors");
 const bcrypt = require("bcrypt");
 const { MongoClient } = require("mongodb");
 const jwt = require("jsonwebtoken");
-const { Resend } = require('resend');
 const crypto = require('crypto');
 const nodemailer = require("nodemailer");
 
@@ -14,8 +13,6 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(cors());
 app.use(express.json());
-
-const resend = new Resend(process.env.RESEND_KEY);
 
 // MongoDB Connection URL
 const uri = process.env.MONGODB_URI;
@@ -51,7 +48,19 @@ async function run() {
     // database name and collection name
     const db = client.db("nextAuth");
     const collection = db.collection("users"); // for users
-    const resetEntry = db.collection("password_resets") // for reset password
+    const resetEntry = db.collection("password_resets"); // for reset password
+    
+    // create a index for automatically token delete after 10 mins
+    // this function set index for token delete after 10 mins
+    const setupIndices = async () => {
+      try {
+        await resetEntry.createIndex({ "expiresAt": 1 }, { expireAfterSeconds: 0 });
+        console.log("TTL Index created successfully.");
+      } catch (error) {
+        console.error("Error creating index:", error);
+      }
+    };
+    setupIndices(); // this is called when server starts
 
     // create user: User Registration and also handled social login like google, github
     app.post("/api/v1/register", async (req, res) => {
@@ -192,11 +201,11 @@ async function run() {
       )
       
       // 5. create reset password link
-      const resetLink = `http://localhost:3000/api/v1/reset-password?token=${resetToken}`;
+      const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
 
       try{
         await transporter.sendMail({
-          from: '"My Custom App" <asawom250@gmail.com>', 
+          from: '" user management App" <asawom250@gmail.com>', // change your app name if you want
           to: email, // user email from frontend
           subject: "Password Reset Request", 
           html: `
@@ -210,11 +219,60 @@ async function run() {
         });
         res.status(200).json({success: true, message: "Email sent successfully!"})
 
-      }catch (error) {
+      }
+      catch (error) {
         console.log(error);
         res.status(500).json({ success: false, message: "Failed to send email" });
       }
 
+    } )
+
+    // update password
+    app.post("/api/v1/update-password", async(req, res)=>{
+      // 1. cleaning token if space exist
+      const { token, newPassword } = req.body;
+      const cleanToken = token ? token.trim() : "";
+      console.log("Postman theke asha token:", cleanToken);
+      
+      try{
+          // 2. check if token in collection and if token in validate time
+          const resetData = await resetEntry.findOne({ token: cleanToken });
+          console.log("Database e pawa data:", resetData);
+          
+          if (!resetData) {
+            return res.status(400).json({ success: false, message: "Invalid or Expired Token!" });
+          }
+
+          // 3. check time and confirm date object
+          const expiryTime = new Date(resetData.expiresAt);
+          if (new Date() > expiryTime) {
+            await resetEntry.deleteOne({ token: cleanToken });
+            return res.status(400).json({ success: false, message: "Link has expired!" });
+          }
+
+          // 4. new password hash
+          const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+          // 5. main user's password update and put in result variable
+          const updateResult = await collection.updateOne(
+            { email: resetData.email },
+            { $set: { password: hashedNewPassword } }
+          );
+
+          // check if password is updated
+          if (updateResult.modifiedCount === 0) {
+            return res.status(404).json({ success: false, message: "User not found!" });
+          }
+
+          // 6. token delete after password changed
+          await resetEntry.deleteOne({ token: cleanToken })
+          res.status(200).json({ success: true, message: "Password updated successfully!" });
+        }
+
+        catch (error) {
+          console.log(error);
+          res.status(500).json({ success: false, message: "Something went wrong!" });
+        }
     } )
 
     /**
