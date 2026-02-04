@@ -43,7 +43,7 @@ async function run() {
   try {
     // Connect to MongoDB
     await client.connect();
-    console.log("Connected to MongoDB");
+    // console.log("Connected to MongoDB");
 
     // database name and collection name
     const db = client.db("nextAuth");
@@ -55,7 +55,7 @@ async function run() {
     const setupIndices = async () => {
       try {
         await resetEntry.createIndex({ "expiresAt": 1 }, { expireAfterSeconds: 0 });
-        console.log("TTL Index created successfully.");
+        // console.log("TTL Index created successfully.");
       } catch (error) {
         console.error("Error creating index:", error);
       }
@@ -126,13 +126,13 @@ async function run() {
         // Find user by email
         const user = await collection.findOne({ email });
         if (!user || !user.password) {
-          console.log("User not found in DB");
+          // console.log("User not found in DB");
           return res.status(401).json({ message: "Invalid email or password" });
         }
 
         // Compare hashed password
         const isPasswordValid = await bcrypt.compare(password.trim(), user.password);
-        console.log("Comparison Result:", isPasswordValid);
+        // console.log("Comparison Result:", isPasswordValid);
         if (!isPasswordValid) {
           return res.status(401).json({ message: "Invalid email or password" });
         }
@@ -221,7 +221,7 @@ async function run() {
 
       }
       catch (error) {
-        console.log(error);
+        // console.log(error);
         res.status(500).json({ success: false, message: "Failed to send email" });
       }
 
@@ -232,12 +232,12 @@ async function run() {
       // 1. cleaning token if space exist
       const { token, newPassword } = req.body;
       const cleanToken = token ? token.trim() : "";
-      console.log("Postman theke asha token:", cleanToken);
+      // console.log("Postman theke asha token:", cleanToken);
       
       try{
           // 2. check if token in collection and if token in validate time
           const resetData = await resetEntry.findOne({ token: cleanToken });
-          console.log("Database e pawa data:", resetData);
+          // console.log("Database e pawa data:", resetData);
           
           if (!resetData) {
             return res.status(400).json({ success: false, message: "Invalid or Expired Token!" });
@@ -270,7 +270,7 @@ async function run() {
         }
 
         catch (error) {
-          console.log(error);
+          // console.log(error);
           res.status(500).json({ success: false, message: "Something went wrong!" });
         }
     } )
