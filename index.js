@@ -276,6 +276,35 @@ async function run() {
       }
     });
 
+    // Get all users from database
+    app.get("/api/v1/registers", async (req, res) => {
+      try {
+        // collection.find({}) all users find without any filter
+        // .toArray() get users in a list
+        const allUsers = await collection.find({}).toArray();
+
+        if (!allUsers || allUsers.length === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "No users found in the database",
+          });
+        }
+
+        // if all users has found then send all data
+        res.status(200).json({
+          success: true,
+          totalUsers: allUsers.length,
+          data: allUsers
+        });
+      } catch (error) {
+        console.error("Fetch All Users Error:", error);
+        res.status(500).json({
+          success: false,
+          message: "Internal Server Error"
+        });
+      }
+    });
+
     // update password
     app.post("/api/v1/update-password", async(req, res)=>{
       // 1. cleaning token if space exist
