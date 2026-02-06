@@ -65,7 +65,7 @@ async function run() {
     // create user: User Registration and also handled social login like google, github
     app.post("/api/v1/register", async (req, res) => {
       try{
-        const{username, email, password, provider} = req.body;
+        const{username, email, password, provider, image} = req.body;
         const currentTime = new Date();
         // check if user existing
         const existingUser = await collection.findOne({ email });
@@ -75,15 +75,24 @@ async function run() {
             {email},
             {$set: {lastLogin: currentTime}}
           )
+
+          // to avoid session data conflict, I send user data directly
+          // we use 200 for success request
           return res.status(200).json({
-            success: true,
-            message: "User logged in successfully!",
-            user: { ...existingUser, lastLogin: currentTime },
+              success: true,
+              user: {
+                  name: existingUser.username,
+                  email: existingUser.email,
+                  image: existingUser.image || "https://png.pngtree.com/png-vector/20231019/ourmid/pngtree-user-profile-avatar-png-image_10211471.png",
+                  role: existingUser.role,
+              }
           });
+
         }
 
         // if password then password will be hashed. not for social login features
         let hashedPassword = null;
+
           if (password) {
             hashedPassword = await bcrypt.hash(password, 10);
         }
@@ -95,16 +104,23 @@ async function run() {
           password: hashedPassword,
           role: "user",
           provider: provider || "credentials",
+          image: image || "https://png.pngtree.com/png-vector/20231019/ourmid/pngtree-user-profile-avatar-png-image_10211471.png",
           createdAt: currentTime,
           lastLogin: currentTime,
         };
 
         await collection.insertOne(newUser);
 
+        // we use 201 for creating new things
         res.status(201).json({
           success: true,
-          message: "User registered successfully!",
-          user: newUser
+          message: "Registered successfully!",
+          user: {
+              name: newUser.username,
+              email: newUser.email,
+              image: newUser.image,
+              role: newUser.role
+          }
         });
 
       }
