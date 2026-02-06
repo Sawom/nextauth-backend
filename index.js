@@ -173,7 +173,13 @@ async function run() {
           success: true,
           message: "User successfully logged in!",
           accessToken: token,
-          lastLogin: currentTime
+          lastLogin: currentTime,
+          user: {
+            name: user.username,
+            email: user.email,
+            image: user.image || "https://png.pngtree.com/png-vector/20231019/ourmid/pngtree-user-profile-avatar-png-image_10211471.png",
+            role: user.role
+          }
         });
 
       }
@@ -242,6 +248,33 @@ async function run() {
       }
 
     } )
+
+    // get user by email
+    app.get("/api/v1/registers/:email", async (req, res) => {
+      try {
+        const userEmail = req.params.email; // get email from url
+
+        // search user from database
+        const user = await collection.findOne({ email: userEmail });
+
+        if (!user) {
+          return res.status(404).json({ 
+            success: false, 
+            message: "User not found in database" 
+          });
+        }
+
+        // if user has found send the user
+        res.status(200).json(user);
+
+      } catch (error) {
+        console.error("Fetch User Error:", error);
+        res.status(500).json({ 
+          success: false, 
+          message: "Internal Server Error" 
+        });
+      }
+    });
 
     // update password
     app.post("/api/v1/update-password", async(req, res)=>{
